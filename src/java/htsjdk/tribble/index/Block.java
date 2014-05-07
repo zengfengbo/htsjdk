@@ -23,6 +23,11 @@
  */
 package htsjdk.tribble.index;
 
+import htsjdk.samtools.Chunk;
+
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Represents a contiguous block of bytes in a file, defined by a start position and size (in bytes)
 */
@@ -38,6 +43,18 @@ public class Block {
     public Block(final long startPosition, final long size) {
         this.startPosition = startPosition;
         this.size = size;
+    }
+
+    public Block(final Chunk chunk) {
+        this(chunk.getChunkStart(), chunk.getChunkEnd() - chunk.getChunkStart());
+    }
+
+    public static List<Block> makeBlockListFromChunkList(final List<Chunk> chunks) {
+        final List<Block> ret = new ArrayList<Block>(chunks.size());
+        for (final Chunk chunk : chunks) {
+            ret.add(new Block(chunk));
+        }
+        return ret;
     }
 
     /**

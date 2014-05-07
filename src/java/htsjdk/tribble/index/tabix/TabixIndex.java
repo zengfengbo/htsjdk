@@ -148,12 +148,7 @@ public class TabixIndex implements Index {
         if (sequenceIndex == -1 || indices[sequenceIndex] == null) {
             return Collections.EMPTY_LIST;
         }
-        final List<Chunk> chunks = indices[sequenceIndex].getChunksOverlapping(start, end);
-        final List<Block> ret = new ArrayList<Block>(chunks.size());
-        for (final Chunk chunk : chunks) {
-            ret.add(new Block(chunk.getChunkStart(), chunk.getChunkEnd() - chunk.getChunkStart()));
-        }
-        return ret;
+        return Block.makeBlockListFromChunkList(indices[sequenceIndex].getChunksOverlapping(start, end));
     }
 
     @Override
@@ -295,21 +290,19 @@ public class TabixIndex implements Index {
         final ArrayList<Bin> bins = new ArrayList<Bin>();
         for (int i = 0; i < numBins; ++i) {
             final Bin bin = loadBin(referenceSequenceIndex, dis);
-            if (bin != null) {
-                // File is not sparse, but array being produced is sparse, so grow array with nulls as appropriate
-                // so that bin number == index into array.
-                ++nonNullBins;
-                if (bins.size() > bin.getBinNumber()) {
-                    if (bins.get(bin.getBinNumber()) != null) {
-                        throw new TribbleException("Bin " + bin.getBinNumber() + " appears more than once in file");
-                    }
-                    bins.set(bin.getBinNumber(),bin);
-                } else {
-                    // Grow bins array as needed.
-                    bins.ensureCapacity(bin.getBinNumber() + 1);
-                    while (bins.size() < bin.getBinNumber()) bins.add(null);
-                    bins.add(bin);
+            // File is not sparse, but array being produced is sparse, so grow array with nulls as appropriate
+            // so that bin number == index into array.
+            ++nonNullBins;
+            if (bins.size() > bin.getBinNumber()) {
+                if (bins.get(bin.getBinNumber()) != null) {
+                    throw new TribbleException("Bin " + bin.getBinNumber() + " appears more than once in file");
                 }
+                bins.set(bin.getBinNumber(),bin);
+            } else {
+                // Grow bins array as needed.
+                bins.ensureCapacity(bin.getBinNumber() + 1);
+                while (bins.size() < bin.getBinNumber()) bins.add(null);
+                bins.add(bin);
             }
         }
         final LinearIndex linearIndex = loadLinearIndex(referenceSequenceIndex, dis);

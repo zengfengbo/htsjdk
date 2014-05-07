@@ -67,6 +67,7 @@ public class LinearIndex {
     }
 
     public long get(final int index) {
+        if (index < mIndexStart) return 0l;
         return mIndexEntries[index-mIndexStart];
     }
 
