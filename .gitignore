@@ -1,6 +1,5 @@
 htsjdk.iws
 .command_tmp
-classes
 testclasses
 javadoc
 dist
@@ -11,3 +10,8 @@ intellij.classes
 /htsjdk.version.properties
 /bin
 /test-output
+/target
+.idea/workspace.xml
+.idea/libraries
+/project/target
+/project/project
