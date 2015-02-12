@@ -42,6 +42,10 @@ artifactName := { (sv: ScalaVersion, module: ModuleID, artifact: Artifact) =>
 
 crossPaths := false
 
+javacOptions in (Compile) ++= Seq("-source", "1.6")
+ 
+javacOptions in (Compile, compile) ++= Seq("-target", "1.6")
+
 pomExtra := <url>http://samtools.github.io/htsjdk/</url>
   <licenses>
     <license>
