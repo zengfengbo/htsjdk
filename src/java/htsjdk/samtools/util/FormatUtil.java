@@ -171,7 +171,6 @@ public class FormatUtil {
         } else {
             return value.charAt(0);
         }
-
     }
 
     /**

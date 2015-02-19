@@ -545,4 +545,17 @@ public class MetricsFile<BEAN extends MetricBase, HKEY extends Comparable> {
             throw new SAMException(e.getMessage(), e);
         }
     }
+
+    /**
+     * Method to read the header from a metrics file.
+     */
+    public static List<Header> readHeaders(final File file) {
+        try {
+            final MetricsFile<MetricBase, Comparable<?>> metricsFile = new MetricsFile<MetricBase, Comparable<?>>();
+            metricsFile.read(new FileReader(file));
+            return metricsFile.getHeaders();
+        } catch (FileNotFoundException e) {
+            throw new SAMException(e.getMessage(), e);
+        }
+    }
 }
