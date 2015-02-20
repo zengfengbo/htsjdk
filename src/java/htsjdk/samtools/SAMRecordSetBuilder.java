@@ -78,6 +78,10 @@ public class SAMRecordSetBuilder implements Iterable<SAMRecord> {
     public SAMRecordSetBuilder() {
         this(true, SAMFileHeader.SortOrder.coordinate);
     }
+    public SAMRecordSetBuilder(final int readLength) {
+        this();
+        this.readLength = readLength;
+    }
 
     /**
      * Construct a new SAMRecordSetBuilder.
@@ -197,12 +201,12 @@ public class SAMRecordSetBuilder implements Iterable<SAMRecord> {
 
     /**
      * Adds a fragment record (mapped or unmapped) to the set using the provided contig start and optionally the strand,
-     * cigar string, quality string or default quality score.  This does not modify the flag field, which should be updated
+     * cigar string, base string, quality string or default quality score.  This does not modify the flag field, which should be updated
      * if desired before adding the return to the list of records.
      */
     private SAMRecord createReadNoFlag(final String name, final int contig, final int start, final boolean negativeStrand,
-                                       final boolean recordUnmapped, final String cigar, final String qualityString,
-                                       final int defaultQuality) throws SAMException {
+                                       final boolean recordUnmapped, final String cigar, final String baseString,
+                                       final String qualityString, final int defaultQuality) throws SAMException {
         final SAMRecord rec = new SAMRecord(this.header);
         rec.setReadName(name);
         if (chroms.length <= contig) {
@@ -234,7 +238,7 @@ public class SAMRecordSetBuilder implements Iterable<SAMRecord> {
             rec.setAttribute(SAMTag.RG.name(), readGroup.getReadGroupId());
         }
 
-        fillInBasesAndQualities(rec, qualityString, defaultQuality);
+        fillInBasesAndQualities(rec, baseString, qualityString, defaultQuality);
 
         return rec;
     }
@@ -259,34 +263,73 @@ public class SAMRecordSetBuilder implements Iterable<SAMRecord> {
 
     /**
      * Adds a fragment record (mapped or unmapped) to the set using the provided contig start and optionally the strand,
-     * cigar string, quality string or default quality score.
+     * cigar string, quality string, default quality score or secondary alignment flag.
      */
     public SAMRecord addFrag(final String name, final int contig, final int start, final boolean negativeStrand,
                              final boolean recordUnmapped, final String cigar, final String qualityString,
                              final int defaultQuality, final boolean isSecondary) throws SAMException {
-        final htsjdk.samtools.SAMRecord rec = createReadNoFlag(name, contig, start, negativeStrand, recordUnmapped, cigar, qualityString, defaultQuality);
+        return addFrag(name, contig, start, negativeStrand, recordUnmapped, cigar, qualityString, defaultQuality, isSecondary, null);
+    }
+
+    /**
+     * Adds a fragment record (mapped or unmapped) to the set using the provided contig start and optionally the strand,
+     * cigar string, quality string default quality score, secondary alignment flag or base string.
+     */
+    public SAMRecord addFrag(final String name, final int contig, final int start, final boolean negativeStrand,
+                             final boolean recordUnmapped, final String cigar, final String qualityString,
+                             final int defaultQuality, final boolean isSecondary, final String baseString) throws SAMException {
+        final SAMRecord rec = createReadNoFlag(name, contig, start, negativeStrand, recordUnmapped, cigar, baseString, qualityString, defaultQuality);
         if (isSecondary) rec.setNotPrimaryAlignmentFlag(true);
         this.records.add(rec);
         return rec;
     }
 
     /**
-     * Fills in the bases and qualities for the given record. Quality data is randomly generated if the defaultQuality
-     * is set to -1. Otherwise all qualities will be set to defaultQuality. If a quality string is provided that string
-     * will be used instead of the defaultQuality.
+     * Fills in bases and qualities with randomly generated data.
+     * Relies on the alignment start and end having been set to get read length.
      */
-    private void fillInBasesAndQualities(final SAMRecord rec, final String qualityString, final int defaultQuality) {
+    private void fillInBasesAndQualities(final SAMRecord rec) {
+        fillInBasesAndQualities(rec, null, null, -1);
+    }
 
-        if (null == qualityString) {
-            fillInBasesAndQualities(rec, defaultQuality);
-        } else {
+    /**
+     * Fill in bases and qualities from the provided strings. If baseString is null, randomly generate the bases.
+     * If qualityString is null, use defaultQuality. If defaultQuality is -1, randomly generate the qualities.
+     * Relies on the alignment start and end having been set to get read length.
+     */
+    private void fillInBasesAndQualities(final SAMRecord rec, final String baseString, final String qualityString, final int defaultQuality) {
+        if (null == baseString) {
             fillInBases(rec);
+        } else {
+            rec.setReadBases(baseString.getBytes());
+        }
+        if (null == qualityString) {
+            fillInQualities(rec, defaultQuality);
+        } else {
             rec.setBaseQualityString(qualityString);
         }
     }
 
     /**
-     * Randomly fills in the bases for the given record.
+     * Fills in qualities with a set default quality. If the defaultQuality is set to -1 quality scores will
+     * be randomly generated. Relies on the alignment start and end having been set to get read length.
+     */
+    private void fillInQualities(final SAMRecord rec, final int defaultQuality) {
+        final int length = this.readLength;
+        final byte[] quals = new byte[length];
+
+        if (-1 != defaultQuality) {
+            Arrays.fill(quals, (byte) defaultQuality);
+        } else {
+            for (int i = 0; i < length; ++i) {
+                quals[i] = (byte) this.random.nextInt(50);
+            }
+        }
+        rec.setBaseQualities(quals);
+    }
+
+    /**
+     * Randomly fills in the bases for the given record. Relies on the alignment start and end having been set to get read length.
      */
     private void fillInBases(final SAMRecord rec) {
         final int length = this.readLength;
@@ -389,8 +432,8 @@ public class SAMRecordSetBuilder implements Iterable<SAMRecord> {
                                    final boolean record2NonPrimary, final int defaultQuality) {
         final List<SAMRecord> recordsList = new LinkedList<SAMRecord>();
 
-        final SAMRecord end1 = createReadNoFlag(name, contig1, start1, strand1, record1Unmapped, cigar1, null, defaultQuality);
-        final SAMRecord end2 = createReadNoFlag(name, contig2, start2, strand2, record2Unmapped, cigar2, null, defaultQuality);
+        final SAMRecord end1 = createReadNoFlag(name, contig1, start1, strand1, record1Unmapped, cigar1, null, null, defaultQuality);
+        final SAMRecord end2 = createReadNoFlag(name, contig2, start2, strand2, record2Unmapped, cigar2, null, null, defaultQuality);
 
         end1.setReadPairedFlag(true);
         end1.setFirstOfPairFlag(true);
@@ -468,34 +511,6 @@ public class SAMRecordSetBuilder implements Iterable<SAMRecord> {
 
         this.records.add(end1);
         this.records.add(end2);
-    }
-
-    /**
-     * Fills in bases and qualities with randomly generated data.
-     * Relies on the alignment start and end having been set to get read length.
-     */
-    private void fillInBasesAndQualities(final SAMRecord rec) {
-        fillInBasesAndQualities(rec, -1);
-    }
-
-    /**
-     * Fills in bases and qualities with a set default quality. If the defaultQuality is set to -1 quality scores will
-     * be randomly generated.
-     * Relies on the alignment start and end having been set to get read length.
-     */
-    private void fillInBasesAndQualities(final SAMRecord rec, final int defaultQuality) {
-        final int length = this.readLength;
-        final byte[] quals = new byte[length];
-
-        if (-1 != defaultQuality) {
-            Arrays.fill(quals, (byte) defaultQuality);
-        } else {
-            for (int i = 0; i < length; ++i) {
-                quals[i] = (byte) this.random.nextInt(50);
-            }
-        }
-        rec.setBaseQualities(quals);
-        fillInBases(rec);
     }
 
     /**
