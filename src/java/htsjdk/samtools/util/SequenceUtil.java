@@ -37,6 +37,8 @@ import java.io.File;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -821,7 +823,7 @@ public class SequenceUtil {
      *
      * @param record
      * @param ref
-     * @param flag
+     * @param calcMD
      * @return
      */
     public static void calculateMdAndNmTags(final SAMRecord record, final byte[] ref,
@@ -902,5 +904,51 @@ public class SequenceUtil {
         for (int i = 0; i < bases.length; i++)
             bases[i] = upperCase(bases[i]);
         return bases;
+    }
+
+    /** Generates all possible unambiguous kmers of length and returns them as byte[]s. */
+    public static List<byte[]> generateAllKmers(final int length) {
+        final List<byte[]> sofar = new LinkedList<byte[]>();
+        final byte[] bases = {A, C, G, T};
+
+        if (sofar.size() == 0) {
+            sofar.add(new byte[length]);
+        }
+
+        while (true) {
+            final byte[] bs = sofar.remove(0);
+            final int indexOfNextBase = findIndexOfNextBase(bs);
+
+            if (indexOfNextBase == -1) {
+                sofar.add(bs);
+                break;
+            } else {
+                for (final byte b : bases) {
+                    final byte[] next = Arrays.copyOf(bs, bs.length);
+                    next[indexOfNextBase] = b;
+                    sofar.add(next);
+                }
+            }
+        }
+
+        return sofar;
+    }
+
+    /**
+     * Finds the first zero character in the array, or returns -1 if all are non-zero.
+     * TODO refactor this method out?
+     */
+    private static int findIndexOfNextBase(final byte[] bs) {
+        for (int i = 0; i < bs.length; ++i) {
+            if (bs[i] == 0) return i;
+        }
+
+        return -1;
+    }
+
+    /** Get the central base of a context string. Throw an error if the string length is even. */
+    public static char getCentralBase(final String context) {
+        if (context.length() % 2 == 0) throw new SAMException("Context " + context + " has an even length, and thus no central base.");
+        else return context.charAt(context.length() / 2);
     }
 }

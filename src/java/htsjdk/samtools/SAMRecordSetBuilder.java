@@ -134,6 +134,14 @@ public class SAMRecordSetBuilder implements Iterable<SAMRecord> {
         }
     }
 
+    public void setSequenceDictionary(final List<SAMSequenceRecord> chroms) {
+        this.header.setSequenceDictionary(new SAMSequenceDictionary(chroms));
+    }
+
+    public void setSequenceDictionary(final SAMSequenceDictionary dict) {
+        this.header.setSequenceDictionary(dict);
+    }
+
     public int size() {
         return this.records.size();
     }
@@ -145,6 +153,18 @@ public class SAMRecordSetBuilder implements Iterable<SAMRecord> {
      */
     public void setRandomSeed(final long seed) {
         random.setSeed(seed);
+    }
+
+    public byte getRandomBase() {
+        return BASES[this.random.nextInt(BASES.length)];
+    }
+
+    public byte getRandomQual() {
+        return (byte) this.random.nextInt(50);
+    }
+
+    public int getRandomReadPos() {
+        return this.random.nextInt(this.readLength);
     }
 
     /**
@@ -322,7 +342,7 @@ public class SAMRecordSetBuilder implements Iterable<SAMRecord> {
             Arrays.fill(quals, (byte) defaultQuality);
         } else {
             for (int i = 0; i < length; ++i) {
-                quals[i] = (byte) this.random.nextInt(50);
+                quals[i] = this.getRandomQual();
             }
         }
         rec.setBaseQualities(quals);
@@ -336,7 +356,7 @@ public class SAMRecordSetBuilder implements Iterable<SAMRecord> {
         final byte[] bases = new byte[length];
 
         for (int i = 0; i < length; ++i) {
-            bases[i] = BASES[this.random.nextInt(BASES.length)];
+            bases[i] = this.getRandomBase();
         }
 
         rec.setReadBases(bases);
@@ -348,7 +368,6 @@ public class SAMRecordSetBuilder implements Iterable<SAMRecord> {
     public void addUnmappedFragment(final String name) {
         addFrag(name, -1, -1, false, true, null, null, -1, false);
     }
-
 
     /**
      * Adds a skeletal pair of records to the set using the provided
@@ -514,33 +533,14 @@ public class SAMRecordSetBuilder implements Iterable<SAMRecord> {
     }
 
     /**
-     * Creates samFileReader from the data in instance of this class
+     * Creates SamReader from the data in instance of this class
+     * Note: this writes a temporary BAM and opens a SamReader from that.
      *
-     * @return SAMFileReader
+     * @return SamReader
      */
     public SamReader getSamReader() {
-
-        final File tempFile;
-
-        try {
-            tempFile = File.createTempFile("temp", ".sam");
-        } catch (final IOException e) {
-            throw new RuntimeIOException("problems creating tempfile", e);
-        }
-
-
-        this.header.setAttribute("VN", "1.0");
-        final SAMFileWriter w = new SAMFileWriterFactory().makeBAMWriter(this.header, true, tempFile);
-        for (final SAMRecord r : this.getRecords()) {
-            w.addAlignment(r);
-        }
-
-
-        w.close();
-
+        final File tempFile = writeTempFile(true, true);
         final SamReader reader = SamReaderFactory.makeDefault().validationStringency(ValidationStringency.SILENT).open(tempFile);
-        tempFile.deleteOnExit();
-
         return reader;
     }
 
@@ -549,5 +549,37 @@ public class SAMRecordSetBuilder implements Iterable<SAMRecord> {
     }
 
     public void setReadLength(final int readLength) { this.readLength = readLength; }
+
+    /**
+     * Creates a temp SAM file with the records contained in this instance.
+     *
+     * @param deleteOnExit - whether to delete the temp file when the JVM exits
+     * @param writeBam - write BAM instead of SAM
+     * @return the temp file path
+     */
+    public File writeTempFile(final boolean deleteOnExit, final boolean writeBam) {
+        final File tempFile;
+        final String extension = writeBam ? ".bam" : ".sam";
+        try {
+            tempFile = File.createTempFile("temp", extension);
+        } catch (final IOException e) {
+            throw new RuntimeIOException("problems creating tempfile", e);
+        }
+
+        this.header.setAttribute("VN", "1.0");
+        final SAMFileWriterFactory factory = new SAMFileWriterFactory();
+        final SAMFileWriter w = writeBam ? factory.makeBAMWriter(this.header, true, tempFile) : factory.makeSAMWriter(this.header, true, tempFile);
+
+        for (final SAMRecord r : this.getRecords()) {
+            w.addAlignment(r);
+        }
+        w.close();
+
+        if (deleteOnExit) {
+            tempFile.deleteOnExit();
+        }
+
+        return tempFile;
+    }
 
 }
