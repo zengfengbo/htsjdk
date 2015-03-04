@@ -578,4 +578,20 @@ public class MetricsFile<BEAN extends MetricBase, HKEY extends Comparable> {
             throw new SAMException(e.getMessage(), e);
         }
     }
+
+    /**
+     * Compare the metrics in two files, ignoring headers and histograms.
+     */
+    public static boolean areMetricsEqual(final File file1, final File file2) {
+        try {
+            final MetricsFile<MetricBase, Comparable<?>> mf1 = new MetricsFile<MetricBase, Comparable<?>>();
+            final MetricsFile<MetricBase, Comparable<?>> mf2 = new MetricsFile<MetricBase, Comparable<?>>();
+            mf1.read(new FileReader(file1));
+            mf2.read(new FileReader(file2));
+            return mf1.areMetricsEqual(mf2);
+        } catch (FileNotFoundException e) {
+            throw new SAMException(e.getMessage(), e);
+        }
+
+    }
 }
