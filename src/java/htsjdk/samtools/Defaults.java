@@ -2,6 +2,8 @@ package htsjdk.samtools;
 
 import java.io.File;
 
+import htsjdk.samtools.SAMTextWriter.FlagFieldsOutput;
+
 /**
  * Embodies defaults for global values that affect how the SAM JDK operates. Defaults are encoded in the class
  * and are also overridable using system properties.
@@ -23,6 +25,9 @@ public class Defaults {
 
     /** Buffer size, in bytes, used whenever reading/writing files or streams.  Default = 128k. */
     public static final int BUFFER_SIZE;
+
+    /** The output format of the flag field when outputting text. */
+    public static final FlagFieldsOutput FLAG_FIELDS_OUTPUT;
 
     /**
      * Even if BUFFER_SIZE is 0, this is guaranteed to be non-zero.  If BUFFER_SIZE is non-zero,
@@ -75,6 +80,7 @@ public class Defaults {
         REFERENCE_FASTA = getFileProperty("reference_fasta", null);
         EBI_REFERENCE_SEVICE_URL_MASK = "http://www.ebi.ac.uk/ena/cram/md5/%s";
         CUSTOM_READER_FACTORY = getStringProperty("custom_reader", "");
+        FLAG_FIELDS_OUTPUT = FlagFieldsOutput.DEFAULT;
     }
 
     /** Gets a string system property, prefixed with "samjdk." using the default if the property does not exist. */

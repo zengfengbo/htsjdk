@@ -28,6 +28,7 @@ import htsjdk.samtools.util.BlockCompressedOutputStream;
 import htsjdk.samtools.util.IOUtil;
 import htsjdk.samtools.util.Md5CalculatingOutputStream;
 import htsjdk.samtools.util.RuntimeIOException;
+import htsjdk.samtools.SAMTextWriter.FlagFieldsOutput;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -47,7 +48,7 @@ public class SAMFileWriterFactory {
     private int asyncOutputBufferSize = AsyncSAMFileWriter.DEFAULT_QUEUE_SIZE;
     private int bufferSize = Defaults.BUFFER_SIZE;
     private File tmpDir;
-
+    private FlagFieldsOutput flagFieldsOutput = FlagFieldsOutput.NONE;
 
     private Integer maxRecordsInRam;
 
@@ -142,6 +143,15 @@ public class SAMFileWriterFactory {
     }
 
     /**
+     * Set the flag output format only when writing tet.
+     * Default value: [[htsjdk.samtools.SAMTextWriter.FlagFieldsOutput.DEFAULT]]
+     */
+    public SAMFileWriterFactory setFlagFieldsOutput(final FlagFieldsOutput flagFieldsOutput) {
+        this.flagFieldsOutput = flagFieldsOutput;
+        return this;
+    }
+
+    /**
      * Create a BAMFileWriter that is ready to receive SAMRecords.  Uses default compression level.
      *
      * @param header     entire header. Sort order is determined by the sortOrder property of this arg.
@@ -203,11 +213,14 @@ public class SAMFileWriterFactory {
      * @param outputFile where to write the output.
      */
     public SAMFileWriter makeSAMWriter(final SAMFileHeader header, final boolean presorted, final File outputFile) {
+        if (flagFieldsOutput == FlagFieldsOutput.NONE) {
+            flagFieldsOutput = Defaults.FLAG_FIELDS_OUTPUT;
+        }
         try {
             final SAMTextWriter ret = this.createMd5File
                     ? new SAMTextWriter(new Md5CalculatingOutputStream(new FileOutputStream(outputFile, false),
-                    new File(outputFile.getAbsolutePath() + ".md5")))
-                    : new SAMTextWriter(outputFile);
+                    new File(outputFile.getAbsolutePath() + ".md5")), flagFieldsOutput)
+                    : new SAMTextWriter(outputFile, flagFieldsOutput);
             ret.setSortOrder(header.getSortOrder(), presorted);
             if (maxRecordsInRam != null) {
                 ret.setMaxRecordsInRam(maxRecordsInRam);
@@ -231,7 +244,10 @@ public class SAMFileWriterFactory {
      *                  caller must buffer if desired.  Note that PrintStream is buffered.
      */
     public SAMFileWriter makeSAMWriter(final SAMFileHeader header, final boolean presorted, final OutputStream stream) {
-        return initWriter(header, presorted, false, new SAMTextWriter(stream));
+        if (flagFieldsOutput == FlagFieldsOutput.NONE) {
+            flagFieldsOutput = Defaults.FLAG_FIELDS_OUTPUT;
+        }
+        return initWriter(header, presorted, false, new SAMTextWriter(stream, flagFieldsOutput));
     }
 
     /**
